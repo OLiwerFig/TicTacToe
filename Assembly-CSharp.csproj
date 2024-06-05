@@ -65,6 +65,7 @@
     <Compile Include="Assets/Scripts/Pawn.cs" />
     <Compile Include="Assets/Scripts/Field.cs" />
     <Compile Include="Assets/Scripts/Player.cs" />
+    <Compile Include="Assets/Scripts/GameState.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

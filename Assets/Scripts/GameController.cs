@@ -19,6 +19,8 @@ public abstract class GameController : MonoBehaviour {
 
     public Player Player2;
 
+    protected bool gameOver = false;
+
     protected Player CurrentPlayer;
 
     public int FieldSize;
@@ -38,6 +40,17 @@ public abstract class GameController : MonoBehaviour {
 
     public abstract void CreateField(int size);
 
-    public abstract void Move(Field field); 
+    public abstract void Move(Field field);
+
+    public abstract Player CheckVictoryState(GameState state);
+
+    public abstract int MiniMax(GameState state, int depth, bool isMaximizingPlayer);
+
+    public abstract int FindBestMove(GameState state);
+
+    public abstract GameState GetGameState();
+
+    public abstract void MoveComputer();
+
 
 }

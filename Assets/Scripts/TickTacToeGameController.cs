@@ -1,31 +1,35 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 
-public class TickTakToeGameController : GameController {
 
+public class TickTakToeGameController : GameController
+{
     private Field[,] gameBoard;
     private int winLength;
 
-    void Start() {
+    void Start()
+    {
         Initialize(FieldSize, 3);  // Domyślna długość warunku zwycięstwa to 3 dla gry 3x3
         CurrentPlayer = Player1;
     }
 
-    public override void Initialize(int fieldSize, int winLength) {
+    public override void Initialize(int fieldSize, int winLength)
+    {
         FieldSize = fieldSize;
         this.winLength = winLength;
         gameBoard = new Field[FieldSize, FieldSize];
         CreateField(FieldSize);
     }
 
-    public override void CreateField(int size) {
+    public override void CreateField(int size)
+    {
         float singleFieldSize = FieldPrefab.GetComponent<RectTransform>().rect.width;
         Vector2 startPoint = new Vector2(singleFieldSize * (-(size - 1) / 2f), singleFieldSize * (-(size - 1) / 2f));
 
-        for (int y = 0; y < size; y++) {
-            for (int x = 0; x < size; x++) {
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
                 GameObject newField = Instantiate(FieldPrefab, transform, false);
                 newField.GetComponent<RectTransform>().anchoredPosition = new Vector2(startPoint.x + x * singleFieldSize, startPoint.y + y * singleFieldSize);
                 Field field = newField.GetComponent<Field>();
@@ -35,7 +39,8 @@ public class TickTakToeGameController : GameController {
         }
     }
 
-    public override Player CheckVictory(Field lastPlaced) {
+    public override Player CheckVictory(Field lastPlaced)
+    {
         int x = lastPlaced.x;
         int y = lastPlaced.y;
         Player player = lastPlaced.PlacedPawn.Owner;
@@ -55,27 +60,36 @@ public class TickTakToeGameController : GameController {
         return null;
     }
 
-    private int CheckLine(Player player, int startX, int startY, int stepX, int stepY) {
+    private int CheckLine(Player player, int startX, int startY, int stepX, int stepY)
+    {
         int count = 1;
 
         // Sprawdź w jedną stronę
-        for (int i = 1; i < winLength; i++) {
+        for (int i = 1; i < winLength; i++)
+        {
             int newX = startX + i * stepX;
             int newY = startY + i * stepY;
-            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && gameBoard[newX, newY].PlacedPawn?.Owner == player) {
+            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && gameBoard[newX, newY].PlacedPawn?.Owner == player)
+            {
                 count++;
-            } else {
+            }
+            else
+            {
                 break;
             }
         }
 
         // Sprawdź w drugą stronę
-        for (int i = 1; i < winLength; i++) {
+        for (int i = 1; i < winLength; i++)
+        {
             int newX = startX - i * stepX;
             int newY = startY - i * stepY;
-            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && gameBoard[newX, newY].PlacedPawn?.Owner == player) {
+            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && gameBoard[newX, newY].PlacedPawn?.Owner == player)
+            {
                 count++;
-            } else {
+            }
+            else
+            {
                 break;
             }
         }
@@ -83,15 +97,166 @@ public class TickTakToeGameController : GameController {
         return count;
     }
 
-    public override void Move(Field field) {
-        if (field.IsEmpty()) {
+    public override void Move(Field field)
+    {
+        if (field.IsEmpty())
+        {
             field.SetFieldState(CurrentPlayer);
-            if (CheckVictory(field) != null) {
-                Debug.Log($"{CurrentPlayer.name} wygrywa!");
+            Player winner = CheckVictory(field);
+            if (winner != null)
+            {
+                Debug.Log($"{winner.name} wygrywa!");
                 // Obsłuż zwycięstwo (np. pokaż wiadomość, zresetuj grę, itp.)
-            } else {
+            }
+            else
+            {
                 NextPlayer();
+                if (CurrentPlayer.IsComputer)
+                {
+                    MoveComputer();
+                }
             }
         }
     }
+
+    public override void MoveComputer()
+    {
+        GameState currentState = GetGameState();
+        int bestMoveIndex = FindBestMove(currentState);
+        Field bestMoveField = gameBoard[bestMoveIndex / FieldSize, bestMoveIndex % FieldSize];
+        Move(bestMoveField);
+    }
+
+    public override GameState GetGameState()
+    {
+        GameState state = new GameState();
+        state.Board = new int[FieldSize, FieldSize];
+        for (int i = 0; i < FieldSize; i++)
+        {
+            for (int j = 0; j < FieldSize; j++)
+            {
+                state.Board[i, j] = gameBoard[i, j].PlacedPawn == null ? 0 : gameBoard[i, j].PlacedPawn.Owner == Player1 ? -1 : 1;
+                Debug.Log(state.Board[i,j]);
+            }
+        }
+        return state;
+    }
+
+    public override int FindBestMove(GameState state)
+    {
+        int bestMove = -1;
+        int bestValue = int.MinValue;
+        for (int i = 0; i < FieldSize * FieldSize; i++)
+        {
+            int x = i / FieldSize;
+            int y = i % FieldSize;
+            if (state.Board[x, y] == 0)
+            {
+                state.Board[x, y] = 1;
+                int moveValue = MiniMax(state, 0, false);
+                state.Board[x, y] = 0;
+                if (moveValue > bestValue)
+                {
+                    bestMove = i;
+                    bestValue = moveValue;
+                }
+            }
+        }
+        return bestMove;
+    }
+
+    public override int MiniMax(GameState state, int depth, bool isMaximizingPlayer)
+    {
+        Player winner = CheckVictoryState(state);
+        if (winner != null)
+        {
+            return winner == Player2 ? 1 : -1;
+        }
+        if (depth >= 4) return 0;
+
+        if (isMaximizingPlayer)
+        {
+            int bestValue = int.MinValue;
+            for (int i = 0; i < FieldSize * FieldSize; i++)
+            {
+                int x = i / FieldSize;
+                int y = i % FieldSize;
+                if (state.Board[x, y] == 0)
+                {
+                    state.Board[x, y] = 1;
+                    int value = MiniMax(state, depth + 1, false);
+                    state.Board[x, y] = 0;
+                    bestValue = Mathf.Max(bestValue, value);
+                }
+            }
+            return bestValue;
+        }
+        else
+        {
+            int bestValue = int.MaxValue;
+            for (int i = 0; i < FieldSize * FieldSize; i++)
+            {
+                int x = i / FieldSize;
+                int y = i % FieldSize;
+                if (state.Board[x, y] == 0)
+                {
+                    state.Board[x, y] = -1;
+                    int value = MiniMax(state, depth + 1, true);
+                    state.Board[x, y] = 0;
+                    bestValue = Mathf.Min(bestValue, value);
+                }
+            }
+            return bestValue;
+        }
+    }
+
+    public override Player CheckVictoryState(GameState state)
+    {
+        // Sprawdzanie wierszy
+        for (int i = 0; i < FieldSize; i++)
+        {
+            if (state.Board[i, 0] != 0 && state.Board[i, 0] == state.Board[i, 1] && state.Board[i, 1] == state.Board[i, 2])
+            {
+                return state.Board[i, 0] == 1 ? Player2 : Player1;
+            }
+        }
+
+        // Sprawdzanie kolumn
+        for (int i = 0; i < FieldSize; i++)
+        {
+            if (state.Board[0, i] != 0 && state.Board[0, i] == state.Board[1, i] && state.Board[1, i] == state.Board[2, i])
+            {
+                return state.Board[0, i] == 1 ? Player2 : Player1;
+            }
+        }
+
+        // Sprawdzanie przekątnych
+        if (state.Board[0, 0] != 0 && state.Board[0, 0] == state.Board[1, 1] && state.Board[1, 1] == state.Board[2, 2])
+        {
+            return state.Board[0, 0] == 1 ? Player2 : Player1;
+        }
+        if (state.Board[0, 2] != 0 && state.Board[0, 2] == state.Board[1, 1] && state.Board[1, 1] == state.Board[2, 0])
+        {
+            return state.Board[0, 2] == 1 ? Player2 : Player1;
+        }
+
+        // Sprawdzanie remisu
+        bool isBoardFull = true;
+        for (int i = 0; i < FieldSize; i++)
+        {
+            for (int j = 0; j < FieldSize; j++)
+            {
+                if (state.Board[i, j] == 0)
+                {
+                    isBoardFull = false;
+                    break;
+                }
+            }
+            if (!isBoardFull) break;
+        }
+        if (isBoardFull) return null;
+
+        return null; // Brak zwycięzcy ani remisu
+    }
+
 }
