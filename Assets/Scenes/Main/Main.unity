@@ -257,6 +257,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   PlayerColor: {r: 0.9339623, g: 0.048460312, b: 0.048460312, a: 1}
+  IsComputer: 1
 --- !u!4 &146539245
 Transform:
   m_ObjectHideFlags: 0
@@ -394,6 +395,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   PlayerColor: {r: 0.056114297, g: 0.10299884, b: 0.9150943, a: 1}
+  IsComputer: 0
 --- !u!4 &301658286
 Transform:
   m_ObjectHideFlags: 0
@@ -534,8 +536,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Player1: {fileID: 301658285}
   Player2: {fileID: 146539244}
-  FieldSize: 6
+  FieldSize: 3
   FieldPrefab: {fileID: 7802979326957202628, guid: 3bcc742c9732a45a081e2904912c6692, type: 3}
+  depth: 3
 --- !u!1 &980298873
 GameObject:
   m_ObjectHideFlags: 0

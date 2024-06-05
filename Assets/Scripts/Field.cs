@@ -48,6 +48,4 @@ public class Field : MonoBehaviour
             Destroy(PlacedPawn);
             }
     }
-
-
 }

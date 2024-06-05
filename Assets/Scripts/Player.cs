@@ -6,6 +6,7 @@ public class Player : MonoBehaviour
 {
 
     public Color PlayerColor;
+    public bool IsComputer;
 
     // Start is called before the first frame update
     void Start()
@@ -18,4 +19,5 @@ public class Player : MonoBehaviour
     {
         
     }
+
 }

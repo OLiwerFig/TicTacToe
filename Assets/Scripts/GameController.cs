@@ -31,6 +31,7 @@ public abstract class GameController : MonoBehaviour {
     protected void NextPlayer() {
 
         CurrentPlayer = (CurrentPlayer == Player1 ? Player2 : Player1);
+        Debug.Log("nastopila zmiana gracza z gracza na komputer !");
     }
 
     public abstract void Initialize(int fieldSize, int winLength);
