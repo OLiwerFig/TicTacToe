@@ -44,7 +44,7 @@ public abstract class GameController : MonoBehaviour {
 
     public abstract Player CheckVictoryState(GameState state);
 
-    public abstract int MiniMax(GameState state, int depth, bool isMaximizingPlayer);
+    public abstract int MiniMax(GameState state, int depth, int alpha, int beta, bool isMaximizingPlayer);
 
     public abstract int FindBestMove(GameState state);
 

@@ -1,7 +1,5 @@
 using UnityEngine;
 
-
-
 public class TickTakToeGameController : GameController
 {
     private Field[,] gameBoard;
@@ -35,6 +33,28 @@ public class TickTakToeGameController : GameController
                 Field field = newField.GetComponent<Field>();
                 field.Initialize(x, y);
                 gameBoard[x, y] = field;
+            }
+        }
+    }
+
+    public override void Move(Field field)
+    {
+        if (field.IsEmpty())
+        {
+            field.SetFieldState(CurrentPlayer);
+            Player winner = CheckVictory(field);
+            if (winner != null)
+            {
+                Debug.Log($"{winner.name} wygrywa!");
+                // Obsłuż zwycięstwo (np. pokaż wiadomość, zresetuj grę, itp.)
+            }
+            else
+            {
+                NextPlayer();
+                if (CurrentPlayer.IsComputer)
+                {
+                    MoveComputer();
+                }
             }
         }
     }
@@ -97,27 +117,7 @@ public class TickTakToeGameController : GameController
         return count;
     }
 
-    public override void Move(Field field)
-    {
-        if (field.IsEmpty())
-        {
-            field.SetFieldState(CurrentPlayer);
-            Player winner = CheckVictory(field);
-            if (winner != null)
-            {
-                Debug.Log($"{winner.name} wygrywa!");
-                // Obsłuż zwycięstwo (np. pokaż wiadomość, zresetuj grę, itp.)
-            }
-            else
-            {
-                NextPlayer();
-                if (CurrentPlayer.IsComputer)
-                {
-                    MoveComputer();
-                }
-            }
-        }
-    }
+
 
     public override void MoveComputer()
     {
@@ -126,6 +126,94 @@ public class TickTakToeGameController : GameController
         Field bestMoveField = gameBoard[bestMoveIndex / FieldSize, bestMoveIndex % FieldSize];
         Move(bestMoveField);
     }
+
+    
+
+    public override int FindBestMove(GameState state)
+    {
+        int bestMoveX = -1;
+        int bestMoveY = -1;
+        int bestValue = int.MinValue;
+        for (int x = 0; x < FieldSize; x++)
+        {
+            for (int y = 0; y < FieldSize; y++)
+            {
+                if (state.Board[x, y] == 0)
+                {
+                    state.Board[x, y] = 1;
+                    int moveValue = MiniMax(state, 0, -int.MaxValue, int.MaxValue, false);
+                    state.Board[x, y] = 0;
+                    if (moveValue > bestValue)
+                    {
+                        bestMoveX = x;
+                        bestMoveY = y;
+                        bestValue = moveValue;
+                    }
+                }
+            }
+        }
+        return bestMoveX * FieldSize + bestMoveY;
+    }
+
+    public override int MiniMax(GameState state, int depth, int alpha, int beta, bool isMaximizingPlayer)
+    {
+        Player winner = CheckVictoryState(state);
+        if (winner != null)
+        {
+            return winner == Player2 ? 1 : -1;
+        }
+        if (depth >= 7) return 0;
+
+        if (isMaximizingPlayer)
+        {
+            int bestValue = int.MinValue;
+            for (int x = 0; x < FieldSize; x++)
+            {
+                for (int y = 0; y < FieldSize; y++)
+                {
+                    if (state.Board[x, y] == 0)
+                    {
+                        state.Board[x, y] = 1;
+                        int value = MiniMax(state, depth + 1, alpha, beta, false);
+                        state.Board[x, y] = 0;
+                        bestValue = Mathf.Max(bestValue, value);
+                        alpha = Mathf.Max(alpha, bestValue);
+                        if (beta <= alpha)
+                        {
+                            break; // Beta cut-off
+                        }
+                    }
+                }
+            }
+            return bestValue;
+        }
+        else
+        {
+            int bestValue = int.MaxValue;
+            for (int x = 0; x < FieldSize; x++)
+            {
+                for (int y = 0; y < FieldSize; y++)
+                {
+                    if (state.Board[x, y] == 0)
+                    {
+                        state.Board[x, y] = -1;
+                        int value = MiniMax(state, depth + 1, alpha, beta, true);
+                        state.Board[x, y] = 0;
+                        bestValue = Mathf.Min(bestValue, value);
+                        beta = Mathf.Min(beta, bestValue);
+                        if (beta <= alpha)
+                        {
+                            break; // Alpha cut-off
+                        }
+                    }
+                }
+            }
+            return bestValue;
+        }
+    }
+
+
+
 
     public override GameState GetGameState()
     {
@@ -136,79 +224,13 @@ public class TickTakToeGameController : GameController
             for (int j = 0; j < FieldSize; j++)
             {
                 state.Board[i, j] = gameBoard[i, j].PlacedPawn == null ? 0 : gameBoard[i, j].PlacedPawn.Owner == Player1 ? -1 : 1;
-                Debug.Log(state.Board[i,j]);
+                Debug.Log(state.Board[i, j]);
             }
         }
         return state;
     }
 
-    public override int FindBestMove(GameState state)
-    {
-        int bestMove = -1;
-        int bestValue = int.MinValue;
-        for (int i = 0; i < FieldSize * FieldSize; i++)
-        {
-            int x = i / FieldSize;
-            int y = i % FieldSize;
-            if (state.Board[x, y] == 0)
-            {
-                state.Board[x, y] = 1;
-                int moveValue = MiniMax(state, 0, false);
-                state.Board[x, y] = 0;
-                if (moveValue > bestValue)
-                {
-                    bestMove = i;
-                    bestValue = moveValue;
-                }
-            }
-        }
-        return bestMove;
-    }
 
-    public override int MiniMax(GameState state, int depth, bool isMaximizingPlayer)
-    {
-        Player winner = CheckVictoryState(state);
-        if (winner != null)
-        {
-            return winner == Player2 ? 1 : -1;
-        }
-        if (depth >= 4) return 0;
-
-        if (isMaximizingPlayer)
-        {
-            int bestValue = int.MinValue;
-            for (int i = 0; i < FieldSize * FieldSize; i++)
-            {
-                int x = i / FieldSize;
-                int y = i % FieldSize;
-                if (state.Board[x, y] == 0)
-                {
-                    state.Board[x, y] = 1;
-                    int value = MiniMax(state, depth + 1, false);
-                    state.Board[x, y] = 0;
-                    bestValue = Mathf.Max(bestValue, value);
-                }
-            }
-            return bestValue;
-        }
-        else
-        {
-            int bestValue = int.MaxValue;
-            for (int i = 0; i < FieldSize * FieldSize; i++)
-            {
-                int x = i / FieldSize;
-                int y = i % FieldSize;
-                if (state.Board[x, y] == 0)
-                {
-                    state.Board[x, y] = -1;
-                    int value = MiniMax(state, depth + 1, true);
-                    state.Board[x, y] = 0;
-                    bestValue = Mathf.Min(bestValue, value);
-                }
-            }
-            return bestValue;
-        }
-    }
 
     public override Player CheckVictoryState(GameState state)
     {
@@ -235,28 +257,12 @@ public class TickTakToeGameController : GameController
         {
             return state.Board[0, 0] == 1 ? Player2 : Player1;
         }
+
         if (state.Board[0, 2] != 0 && state.Board[0, 2] == state.Board[1, 1] && state.Board[1, 1] == state.Board[2, 0])
         {
             return state.Board[0, 2] == 1 ? Player2 : Player1;
         }
 
-        // Sprawdzanie remisu
-        bool isBoardFull = true;
-        for (int i = 0; i < FieldSize; i++)
-        {
-            for (int j = 0; j < FieldSize; j++)
-            {
-                if (state.Board[i, j] == 0)
-                {
-                    isBoardFull = false;
-                    break;
-                }
-            }
-            if (!isBoardFull) break;
-        }
-        if (isBoardFull) return null;
-
-        return null; // Brak zwycięzcy ani remisu
+        return null;
     }
-
 }
