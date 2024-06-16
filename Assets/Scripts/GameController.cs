@@ -23,19 +23,27 @@
 
         protected Player CurrentPlayer;
 
+        public abstract void MoveComp();
+
         public int FieldSize;
 
         public GameObject FieldPrefab;
 
         public abstract Player CheckVictory (Field lastPlaced);
 
- 
+        public abstract void OnWin (Player winner);
+
+        public abstract void OnDraw ();
+
+        public abstract void OnGameEnd ();
+
         protected void NextPlayer() {
 
             CurrentPlayer = (CurrentPlayer == Player1 ? Player2 : Player1);
-            Debug.Log("nastopila zmiana gracza z gracza na komputer !");
+            //Debug.Log("nastopila zmiana gracza z gracza na komputer !");
         }
 
+        public abstract bool CountEmpty ();
 
         public abstract void Initialize(int fieldSize, int winLength);
 
@@ -55,8 +63,7 @@
 
 
 
+        public abstract void Clear();
 
 
-
-
-    }
+}

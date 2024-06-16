@@ -1,14 +1,29 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using System;
+
 
 public class TickTakToeGameController : GameController
 {
     private Field[,] gameBoard;
-    private int winLength;
+    public int winLength;
+    public int depth;
+
+    public Text EndText;
+
+
 
     void Start()
     {
-        Initialize(FieldSize, 3);  // Domyślna długość warunku zwycięstwa to 3 dla gry 3x3
+        if (depth >= 6) {
+            depth = 5;
+        }
+        Initialize(FieldSize, winLength); 
         CurrentPlayer = Player1;
+        EndText.gameObject.SetActive(false);
+
     }
 
     public override void Initialize(int fieldSize, int winLength)
@@ -39,28 +54,39 @@ public class TickTakToeGameController : GameController
 
     public override void Move(Field field)
     {
-        if (field.IsEmpty())
+        if (field.IsEmpty() && gameOver == false)
         {
             field.SetFieldState(CurrentPlayer);
             Player winner = CheckVictory(field);
             if (winner != null)
             {
-                Debug.Log($"{winner.name} wygrywa!");
-                // Obsłuż zwycięstwo (np. pokaż wiadomość, zresetuj grę, itp.)
+                OnGameEnd();
+                OnWin(winner);     
             }
-            else 
+            else if (CountEmpty()) {
+                OnGameEnd();
+                OnDraw();
+            }
+            else
             {
-                NextPlayer();
-                if (CurrentPlayer.IsComputer)
-                {
-                    GameState currentState = GetGameState();
-                    (int bestMoveX, int bestMoveY) = FindBestMove(currentState);
-                    Field bestMoveField = gameBoard[bestMoveX, bestMoveY];
-                    Move(bestMoveField);
-                }
+                MoveComp();
             }
         }
     }
+
+
+    public override void MoveComp() {
+        NextPlayer();
+        if (CurrentPlayer.IsComputer)
+        {
+            GameState currentState = GetGameState();
+            (int bestMoveX, int bestMoveY) = FindBestMove(currentState);
+            Field bestMoveField = gameBoard[bestMoveX, bestMoveY];
+            Move(bestMoveField);
+        }
+    }
+
+
 
     public override Player CheckVictory(Field lastPlaced)
     {
@@ -120,7 +146,21 @@ public class TickTakToeGameController : GameController
         return count;
     }
 
-
+    public override bool CountEmpty()
+    {
+        for (int x = 0; x < FieldSize; x++)
+        {
+            for (int y = 0; y < FieldSize; y++)
+            {
+                if (gameBoard[x, y].IsEmpty())
+                {
+                    //Debug.Log($"{x} jest wolna!");
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
     public override (int, int) FindBestMove(GameState state)
     {
@@ -136,7 +176,7 @@ public class TickTakToeGameController : GameController
                 if (state.Board[x, y] == 0)
                 {
                     state.Board[x, y] = 1; // AI's move
-                    int moveValue = MiniMax(state, 5, int.MinValue, int.MaxValue, false);
+                    int moveValue = MiniMax(state, depth, int.MinValue, int.MaxValue, false);
                     state.Board[x, y] = 0; // Clean up
                     if (moveValue > bestValue)
                     {
@@ -144,7 +184,7 @@ public class TickTakToeGameController : GameController
                         bestMoveY = y;
                         bestValue = moveValue;
                         count++;
-                        Debug.Log($"znalezniono lepszy ruch po raz {count}");
+                        //Debug.Log($"znalezniono lepszy ruch po raz {count}");
                     }
                 }
             }
@@ -298,6 +338,43 @@ public class TickTakToeGameController : GameController
         }
 
         return count;
+    }
+
+
+    public override void OnWin(Player winner)
+    {
+        EndText.text = winner.name + "  Won!";
+    }
+
+    public override void OnDraw()
+    {
+        EndText.text = " Remis! ";
+    }
+
+    public override void OnGameEnd()
+    {
+        gameOver = true;
+
+        EndText.transform.SetAsLastSibling();
+        EndText.gameObject.SetActive(true);
+
+        Image[] childrenImages = GetComponentsInChildren<Image>();
+
+        foreach (var image in childrenImages)
+        {
+            image.color = new Color(image.color.r, image.color.g, image.color.b, 0.1f);
+        }
+
+        //Clear();
+    }
+
+    public override void Clear()
+    {
+        Field[] fields = GetComponentsInChildren<Field>();
+        foreach (var field in fields)
+        {
+            Destroy(field.gameObject);
+        }
     }
 
 }
