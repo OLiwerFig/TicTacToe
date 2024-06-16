@@ -633,10 +633,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Player1: {fileID: 301658285}
   Player2: {fileID: 146539244}
-  FieldSize: 3
+  FieldSize: 5
   FieldPrefab: {fileID: 7802979326957202628, guid: 3bcc742c9732a45a081e2904912c6692, type: 3}
-  winLength: 3
-  depth: 4
+  winLength: 4
+  maxDepth: 5
   EndText: {fileID: 831482887}
 --- !u!95 &937713289
 Animator:

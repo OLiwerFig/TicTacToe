@@ -4,26 +4,21 @@ using UnityEngine;
 using UnityEngine.UI;
 using System;
 
-
 public class TickTakToeGameController : GameController
 {
     private Field[,] gameBoard;
     public int winLength;
-    public int depth;
+    public int maxDepth;
 
     public Text EndText;
 
-
+    private Dictionary<string, int> transpositionTable = new Dictionary<string, int>();
 
     void Start()
     {
-        if (depth >= 6) {
-            depth = 5;
-        }
-        Initialize(FieldSize, winLength); 
+        Initialize(FieldSize, winLength);
         CurrentPlayer = Player1;
         EndText.gameObject.SetActive(false);
-
     }
 
     public override void Initialize(int fieldSize, int winLength)
@@ -54,39 +49,48 @@ public class TickTakToeGameController : GameController
 
     public override void Move(Field field)
     {
-        if (field.IsEmpty() && gameOver == false)
+        if (field.IsEmpty() && !gameOver)
         {
             field.SetFieldState(CurrentPlayer);
             Player winner = CheckVictory(field);
             if (winner != null)
             {
                 OnGameEnd();
-                OnWin(winner);     
+                OnWin(winner);
             }
-            else if (CountEmpty()) {
+            else if (CountEmpty())
+            {
                 OnGameEnd();
                 OnDraw();
             }
             else
             {
-                MoveComp();
+                // Switch to the computer player and let it think about its move.
+                NextPlayer();
+                if (CurrentPlayer.IsComputer)
+                {
+                    StartCoroutine(ComputerMove());
+                }
             }
         }
     }
 
 
-    public override void MoveComp() {
-        NextPlayer();
-        if (CurrentPlayer.IsComputer)
-        {
-            GameState currentState = GetGameState();
-            (int bestMoveX, int bestMoveY) = FindBestMove(currentState);
-            Field bestMoveField = gameBoard[bestMoveX, bestMoveY];
-            Move(bestMoveField);
-        }
+    public override void MoveComp()
+    {
+        StartCoroutine(ComputerMove());
     }
 
+    private IEnumerator ComputerMove()
+    {
+        // Wait for a brief moment to simulate thinking time
+        yield return new WaitForSeconds(0.5f);
 
+        GameState currentState = GetGameState();
+        (int bestMoveX, int bestMoveY) = FindBestMove(currentState);
+        Field bestMoveField = gameBoard[bestMoveX, bestMoveY];
+        Move(bestMoveField);
+    }
 
     public override Player CheckVictory(Field lastPlaced)
     {
@@ -94,16 +98,9 @@ public class TickTakToeGameController : GameController
         int y = lastPlaced.y;
         Player player = lastPlaced.PlacedPawn.Owner;
 
-        // Sprawdź wiersz
         if (CheckLine(player, x, y, 0, 1) >= winLength) return player;
-
-        // Sprawdź kolumnę
         if (CheckLine(player, x, y, 1, 0) >= winLength) return player;
-
-        // Sprawdź przekątną (z góry-lewo do dołu-prawo)
         if (CheckLine(player, x, y, 1, 1) >= winLength) return player;
-
-        // Sprawdź przekątną (z góry-prawo do dołu-lewo)
         if (CheckLine(player, x, y, 1, -1) >= winLength) return player;
 
         return null;
@@ -112,8 +109,6 @@ public class TickTakToeGameController : GameController
     private int CheckLine(Player player, int startX, int startY, int stepX, int stepY)
     {
         int count = 1;
-
-        // Sprawdź w jedną stronę
         for (int i = 1; i < winLength; i++)
         {
             int newX = startX + i * stepX;
@@ -128,7 +123,6 @@ public class TickTakToeGameController : GameController
             }
         }
 
-        // Sprawdź w drugą stronę
         for (int i = 1; i < winLength; i++)
         {
             int newX = startX - i * stepX;
@@ -154,7 +148,6 @@ public class TickTakToeGameController : GameController
             {
                 if (gameBoard[x, y].IsEmpty())
                 {
-                    //Debug.Log($"{x} jest wolna!");
                     return false;
                 }
             }
@@ -167,7 +160,8 @@ public class TickTakToeGameController : GameController
         int bestMoveX = -1;
         int bestMoveY = -1;
         int bestValue = int.MinValue;
-        int count = 0;
+
+        int dynamicDepth = Math.Min(maxDepth, FieldSize * FieldSize - CountFilled(state));
 
         for (int x = 0; x < FieldSize; x++)
         {
@@ -175,21 +169,35 @@ public class TickTakToeGameController : GameController
             {
                 if (state.Board[x, y] == 0)
                 {
-                    state.Board[x, y] = 1; // AI's move
-                    int moveValue = MiniMax(state, depth, int.MinValue, int.MaxValue, false);
-                    state.Board[x, y] = 0; // Clean up
+                    state.Board[x, y] = 1;
+                    int moveValue = MiniMax(state, dynamicDepth, int.MinValue, int.MaxValue, false);
+                    state.Board[x, y] = 0;
                     if (moveValue > bestValue)
                     {
                         bestMoveX = x;
                         bestMoveY = y;
                         bestValue = moveValue;
-                        count++;
-                        //Debug.Log($"znalezniono lepszy ruch po raz {count}");
                     }
                 }
             }
         }
         return (bestMoveX, bestMoveY);
+    }
+
+    private int CountFilled(GameState state)
+    {
+        int count = 0;
+        for (int x = 0; x < FieldSize; x++)
+        {
+            for (int y = 0; y < FieldSize; y++)
+            {
+                if (state.Board[x, y] != 0)
+                {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     public override int MiniMax(GameState state, int depth, int alpha, int beta, bool isMaximizingPlayer)
@@ -204,6 +212,12 @@ public class TickTakToeGameController : GameController
             return 0;
         }
 
+        string stateHash = GetStateHash(state);
+        if (transpositionTable.ContainsKey(stateHash))
+        {
+            return transpositionTable[stateHash];
+        }
+
         if (isMaximizingPlayer)
         {
             int maxEval = int.MinValue;
@@ -213,9 +227,9 @@ public class TickTakToeGameController : GameController
                 {
                     if (state.Board[x, y] == 0)
                     {
-                        state.Board[x, y] = 1; // AI's move
+                        state.Board[x, y] = 1;
                         int eval = MiniMax(state, depth - 1, alpha, beta, false);
-                        state.Board[x, y] = 0; // Clean up
+                        state.Board[x, y] = 0;
                         maxEval = Mathf.Max(maxEval, eval);
                         alpha = Mathf.Max(alpha, eval);
                         if (beta <= alpha)
@@ -225,6 +239,7 @@ public class TickTakToeGameController : GameController
                     }
                 }
             }
+            transpositionTable[stateHash] = maxEval;
             return maxEval;
         }
         else
@@ -236,9 +251,9 @@ public class TickTakToeGameController : GameController
                 {
                     if (state.Board[x, y] == 0)
                     {
-                        state.Board[x, y] = -1; // Player's move
+                        state.Board[x, y] = -1;
                         int eval = MiniMax(state, depth - 1, alpha, beta, true);
-                        state.Board[x, y] = 0; // Clean up
+                        state.Board[x, y] = 0;
                         minEval = Mathf.Min(minEval, eval);
                         beta = Mathf.Min(beta, eval);
                         if (beta <= alpha)
@@ -248,6 +263,7 @@ public class TickTakToeGameController : GameController
                     }
                 }
             }
+            transpositionTable[stateHash] = minEval;
             return minEval;
         }
     }
@@ -276,7 +292,6 @@ public class TickTakToeGameController : GameController
             for (int j = 0; j < FieldSize; j++)
             {
                 state.Board[i, j] = gameBoard[i, j].PlacedPawn == null ? 0 : gameBoard[i, j].PlacedPawn.Owner == Player1 ? -1 : 1;
-                //Debug.Log(state.Board[i, j]);
             }
         }
         return state;
@@ -340,7 +355,6 @@ public class TickTakToeGameController : GameController
         return count;
     }
 
-
     public override void OnWin(Player winner)
     {
         EndText.text = winner.name + "  Won!";
@@ -348,7 +362,7 @@ public class TickTakToeGameController : GameController
 
     public override void OnDraw()
     {
-        EndText.text = " Remis! ";
+        EndText.text = " Draw! ";
     }
 
     public override void OnGameEnd()
@@ -377,4 +391,16 @@ public class TickTakToeGameController : GameController
         }
     }
 
+    private string GetStateHash(GameState state)
+    {
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        for (int i = 0; i < FieldSize; i++)
+        {
+            for (int j = 0; j < FieldSize; j++)
+            {
+                sb.Append(state.Board[i, j]);
+            }
+        }
+        return sb.ToString();
+    }
 }
