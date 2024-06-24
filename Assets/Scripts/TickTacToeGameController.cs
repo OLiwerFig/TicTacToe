@@ -1,8 +1,6 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using System;
 
 public class TickTakToeGameController : GameController
 {
@@ -11,8 +9,6 @@ public class TickTakToeGameController : GameController
     public int maxDepth;
 
     public Text EndText;
-
-    private Dictionary<string, int> transpositionTable = new Dictionary<string, int>();
 
     void Start()
     {
@@ -65,9 +61,8 @@ public class TickTakToeGameController : GameController
             }
             else
             {
-                // Switch to the computer player and let it think about its move.
                 NextPlayer();
-                if (CurrentPlayer.IsComputer)
+                if (CurrentPlayer == Player2 && Player2.IsComputer)
                 {
                     StartCoroutine(ComputerMove());
                 }
@@ -75,15 +70,8 @@ public class TickTakToeGameController : GameController
         }
     }
 
-
-    public override void MoveComp()
-    {
-        StartCoroutine(ComputerMove());
-    }
-
     private IEnumerator ComputerMove()
     {
-        // Wait for a brief moment to simulate thinking time
         yield return new WaitForSeconds(0.5f);
 
         GameState currentState = GetGameState();
@@ -92,18 +80,182 @@ public class TickTakToeGameController : GameController
         Move(bestMoveField);
     }
 
-    public override Player CheckVictory(Field lastPlaced)
+
+
+
+    public override (int, int) FindBestMove(GameState state)
     {
-        int x = lastPlaced.x;
-        int y = lastPlaced.y;
-        Player player = lastPlaced.PlacedPawn.Owner;
+        int bestMoveX = -1;
+        int bestMoveY = -1;
+        int bestValue = int.MinValue;
 
-        if (CheckLine(player, x, y, 0, 1) >= winLength) return player;
-        if (CheckLine(player, x, y, 1, 0) >= winLength) return player;
-        if (CheckLine(player, x, y, 1, 1) >= winLength) return player;
-        if (CheckLine(player, x, y, 1, -1) >= winLength) return player;
+        for (int x = 0; x < FieldSize; x++)
+        {
+            for (int y = 0; y < FieldSize; y++)
+            {
+                if (state.Board[x, y] == 0)
+                {
+                    state.Board[x, y] = 1; 
+                    int moveValue = MiniMax(state, maxDepth, int.MinValue, int.MaxValue, false);
+                    state.Board[x, y] = 0;
+                    if (moveValue > bestValue)
+                    {
+                        bestMoveX = x;
+                        bestMoveY = y;
+                        bestValue = moveValue;
+                    }
+                }
+            }
+        }
+        return (bestMoveX, bestMoveY);
+    }
 
-        return null;
+    public override int MiniMax(GameState state, int depth, int alpha, int beta, bool isMaximizingPlayer)
+    {
+        int score = CheckVictoryState(state);
+        if (score != 0)
+        {
+            return score * (depth + 1); 
+        }
+
+        if (depth == 0 || IsFull(state))
+        {
+            return 0;
+        }
+
+        if (isMaximizingPlayer)
+        {
+            int maxEval = int.MinValue;
+            for (int x = 0; x < FieldSize; x++)
+            {
+                for (int y = 0; y < FieldSize; y++)
+                {
+                    if (state.Board[x, y] == 0)
+                    {
+                        state.Board[x, y] = 1; 
+                        int eval = MiniMax(state, depth - 1, alpha, beta, false);
+                        state.Board[x, y] = 0;
+                        maxEval = Mathf.Max(maxEval, eval);
+                        alpha = Mathf.Max(alpha, eval);
+                        if (beta <= alpha)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            return maxEval;
+        }
+        else
+        {
+            int minEval = int.MaxValue;
+            for (int x = 0; x < FieldSize; x++)
+            {
+                for (int y = 0; y < FieldSize; y++)
+                {
+                    if (state.Board[x, y] == 0)
+                    {
+                        state.Board[x, y] = -1; 
+                        int eval = MiniMax(state, depth - 1, alpha, beta, true);
+                        state.Board[x, y] = 0;
+                        minEval = Mathf.Min(minEval, eval);
+                        beta = Mathf.Min(beta, eval);
+                        if (beta <= alpha)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            return minEval;
+        }
+    }
+
+
+
+
+
+    public override bool CountEmpty()
+    {
+        for (int x = 0; x < FieldSize; x++)
+        {
+            for (int y = 0; y < FieldSize; y++)
+            {
+                if (gameBoard[x, y].IsEmpty())
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public override bool IsFull(GameState state)
+    {
+        for (int x = 0; x < FieldSize; x++)
+        {
+            for (int y = 0; y < FieldSize; y++)
+            {
+                if (state.Board[x, y] == 0)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public override GameState GetGameState()
+    {
+        GameState state = new GameState();
+        state.Board = new int[FieldSize, FieldSize];
+        for (int i = 0; i < FieldSize; i++)
+        {
+            for (int j = 0; j < FieldSize; j++)
+            {
+                state.Board[i, j] = gameBoard[i, j].PlacedPawn == null ? 0 : (gameBoard[i, j].PlacedPawn.Owner == Player1 ? -1 : 1);
+            }
+        }
+        return state;
+    }
+
+
+
+
+    private int CheckLineState(int player, int startX, int startY, int stepX, int stepY, GameState state)
+    {
+        int count = 1;
+
+
+        for (int i = 1; i < winLength; i++)
+        {
+            int newX = startX + i * stepX;
+            int newY = startY + i * stepY;
+            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && state.Board[newX, newY] == player)
+            {
+                count++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        for (int i = 1; i < winLength; i++)
+        {
+            int newX = startX - i * stepX;
+            int newY = startY - i * stepY;
+            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && state.Board[newX, newY] == player)
+            {
+                count++;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return count;
     }
 
     private int CheckLine(Player player, int startX, int startY, int stepX, int stepY)
@@ -140,220 +292,49 @@ public class TickTakToeGameController : GameController
         return count;
     }
 
-    public override bool CountEmpty()
+
+    public override int CheckVictoryState(GameState state)
     {
         for (int x = 0; x < FieldSize; x++)
         {
             for (int y = 0; y < FieldSize; y++)
             {
-                if (gameBoard[x, y].IsEmpty())
+                int player = state.Board[x, y];
+                if (player != 0)
                 {
-                    return false;
+                    if (CheckLineState(player, x, y, 1, 0, state) >= winLength) return player;
+                    if (CheckLineState(player, x, y, 0, 1, state) >= winLength) return player;
+                    if (CheckLineState(player, x, y, 1, 1, state) >= winLength) return player;
+                    if (CheckLineState(player, x, y, 1, -1, state) >= winLength) return player;
                 }
             }
         }
-        return true;
+        return 0;
     }
 
-    public override (int, int) FindBestMove(GameState state)
+    public override Player CheckVictory(Field lastPlaced)
     {
-        int bestMoveX = -1;
-        int bestMoveY = -1;
-        int bestValue = int.MinValue;
+        int x = lastPlaced.x;
+        int y = lastPlaced.y;
+        Player player = lastPlaced.PlacedPawn.Owner;
 
-        int dynamicDepth = Math.Min(maxDepth, FieldSize * FieldSize - CountFilled(state));
+        if (CheckLine(player, x, y, 0, 1) >= winLength) return player;
+        if (CheckLine(player, x, y, 1, 0) >= winLength) return player;
+        if (CheckLine(player, x, y, 1, 1) >= winLength) return player;
+        if (CheckLine(player, x, y, 1, -1) >= winLength) return player;
 
-        for (int x = 0; x < FieldSize; x++)
-        {
-            for (int y = 0; y < FieldSize; y++)
-            {
-                if (state.Board[x, y] == 0)
-                {
-                    state.Board[x, y] = 1;
-                    int moveValue = MiniMax(state, dynamicDepth, int.MinValue, int.MaxValue, false);
-                    state.Board[x, y] = 0;
-                    if (moveValue > bestValue)
-                    {
-                        bestMoveX = x;
-                        bestMoveY = y;
-                        bestValue = moveValue;
-                    }
-                }
-            }
-        }
-        return (bestMoveX, bestMoveY);
-    }
-
-    private int CountFilled(GameState state)
-    {
-        int count = 0;
-        for (int x = 0; x < FieldSize; x++)
-        {
-            for (int y = 0; y < FieldSize; y++)
-            {
-                if (state.Board[x, y] != 0)
-                {
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
-
-    public override int MiniMax(GameState state, int depth, int alpha, int beta, bool isMaximizingPlayer)
-    {
-        Player winner = CheckVictoryState(state);
-        if (winner != null)
-        {
-            return winner == Player2 ? 1 : -1;
-        }
-        if (depth == 0 || IsFull(state))
-        {
-            return 0;
-        }
-
-        string stateHash = GetStateHash(state);
-        if (transpositionTable.ContainsKey(stateHash))
-        {
-            return transpositionTable[stateHash];
-        }
-
-        if (isMaximizingPlayer)
-        {
-            int maxEval = int.MinValue;
-            for (int x = 0; x < FieldSize; x++)
-            {
-                for (int y = 0; y < FieldSize; y++)
-                {
-                    if (state.Board[x, y] == 0)
-                    {
-                        state.Board[x, y] = 1;
-                        int eval = MiniMax(state, depth - 1, alpha, beta, false);
-                        state.Board[x, y] = 0;
-                        maxEval = Mathf.Max(maxEval, eval);
-                        alpha = Mathf.Max(alpha, eval);
-                        if (beta <= alpha)
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-            transpositionTable[stateHash] = maxEval;
-            return maxEval;
-        }
-        else
-        {
-            int minEval = int.MaxValue;
-            for (int x = 0; x < FieldSize; x++)
-            {
-                for (int y = 0; y < FieldSize; y++)
-                {
-                    if (state.Board[x, y] == 0)
-                    {
-                        state.Board[x, y] = -1;
-                        int eval = MiniMax(state, depth - 1, alpha, beta, true);
-                        state.Board[x, y] = 0;
-                        minEval = Mathf.Min(minEval, eval);
-                        beta = Mathf.Min(beta, eval);
-                        if (beta <= alpha)
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-            transpositionTable[stateHash] = minEval;
-            return minEval;
-        }
-    }
-
-    public override bool IsFull(GameState state)
-    {
-        for (int x = 0; x < FieldSize; x++)
-        {
-            for (int y = 0; y < FieldSize; y++)
-            {
-                if (state.Board[x, y] == 0)
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    public override GameState GetGameState()
-    {
-        GameState state = new GameState();
-        state.Board = new int[FieldSize, FieldSize];
-        for (int i = 0; i < FieldSize; i++)
-        {
-            for (int j = 0; j < FieldSize; j++)
-            {
-                state.Board[i, j] = gameBoard[i, j].PlacedPawn == null ? 0 : gameBoard[i, j].PlacedPawn.Owner == Player1 ? -1 : 1;
-            }
-        }
-        return state;
-    }
-
-    public override Player CheckVictoryState(GameState state)
-    {
-        for (int x = 0; x < FieldSize; x++)
-        {
-            for (int y = 0; y < FieldSize; y++)
-            {
-                if (state.Board[x, y] != 0)
-                {
-                    int player = state.Board[x, y];
-
-                    if (CheckLineState(player, x, y, 0, 1, state) >= winLength ||
-                        CheckLineState(player, x, y, 1, 0, state) >= winLength ||
-                        CheckLineState(player, x, y, 1, 1, state) >= winLength ||
-                        CheckLineState(player, x, y, 1, -1, state) >= winLength)
-                    {
-                        return player == 1 ? Player2 : Player1;
-                    }
-                }
-            }
-        }
         return null;
     }
 
-    private int CheckLineState(int player, int startX, int startY, int stepX, int stepY, GameState state)
-    {
-        int count = 1;
 
-        for (int i = 1; i < winLength; i++)
-        {
-            int newX = startX + i * stepX;
-            int newY = startY + i * stepY;
-            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && state.Board[newX, newY] == player)
-            {
-                count++;
-            }
-            else
-            {
-                break;
-            }
-        }
 
-        for (int i = 1; i < winLength; i++)
-        {
-            int newX = startX - i * stepX;
-            int newY = startY - i * stepY;
-            if (newX >= 0 && newX < FieldSize && newY >= 0 && newY < FieldSize && state.Board[newX, newY] == player)
-            {
-                count++;
-            }
-            else
-            {
-                break;
-            }
-        }
 
-        return count;
-    }
+
+
+
+
+
+
 
     public override void OnWin(Player winner)
     {
@@ -389,18 +370,5 @@ public class TickTakToeGameController : GameController
         {
             Destroy(field.gameObject);
         }
-    }
-
-    private string GetStateHash(GameState state)
-    {
-        System.Text.StringBuilder sb = new System.Text.StringBuilder();
-        for (int i = 0; i < FieldSize; i++)
-        {
-            for (int j = 0; j < FieldSize; j++)
-            {
-                sb.Append(state.Board[i, j]);
-            }
-        }
-        return sb.ToString();
     }
 }

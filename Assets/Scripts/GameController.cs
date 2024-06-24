@@ -15,6 +15,8 @@
             return Instance;
         }
 
+    public abstract bool CountEmpty();
+
         public Player Player1;
 
         public Player Player2;
@@ -23,11 +25,10 @@
 
         protected Player CurrentPlayer;
 
-        public abstract void MoveComp();
-
         public int FieldSize;
 
         public GameObject FieldPrefab;
+
 
         public abstract Player CheckVictory (Field lastPlaced);
 
@@ -43,7 +44,7 @@
             //Debug.Log("nastopila zmiana gracza z gracza na komputer !");
         }
 
-        public abstract bool CountEmpty ();
+        //public abstract bool CountEmpty ();
 
         public abstract void Initialize(int fieldSize, int winLength);
 
@@ -51,7 +52,7 @@
 
         public abstract void Move(Field field);
 
-        public abstract Player CheckVictoryState(GameState state);
+        public abstract int CheckVictoryState(GameState state);
 
         public abstract GameState GetGameState();
 
